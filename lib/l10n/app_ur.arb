@@ -1,0 +1,19 @@
+{
+  "@@locale": "ur",
+  "appTitle": "سیرت النبی ﷺ",
+  "appSubtitle": "تحقیقی و مستند مطالعۂ سیرت",
+  "continueReadingPrompt": "آپ یہاں مطالعہ چھوڑ کر گئے تھے۔",
+  "continueReadingButton": "مطالعہ جاری رکھیں",
+  "chaptersHeading": "ابوابِ سیرت",
+  "chapterOneTitle": "باب اول: ابتدائی پس منظر",
+  "chapterTwoTitle": "باب دوم: ولادت و طفولیت",
+  "reliabilityTitle": "مستندیت کی علامات",
+  "reliabilityConfirmed": "ثابت و مستند",
+  "reliabilityWeak": "ضعیف روایت",
+  "reliabilityDisputed": "مختلف فیہ",
+  "readingSettings": "مطالعے کی ترتیبات",
+  "fontSizeLabel": "حروف کا حجم",
+  "themeToggle": "اندازِ مطالعہ",
+  "phaseOnePlaceholderNote": "مرحلہ اول: ابواب کا ڈھانچہ اور اردو خطاطی کی ترتیب (تاریخی متن مرحلہ دوم و سوم میں شامل کیا جائے گا)۔",
+  "exploreFeaturesHeading": "تحقیقی و مطالعاتی سہولیات"
+}

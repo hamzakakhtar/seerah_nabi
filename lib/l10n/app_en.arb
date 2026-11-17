@@ -1,0 +1,19 @@
+{
+  "@@locale": "en",
+  "appTitle": "Seerat-un-Nabi ﷺ",
+  "appSubtitle": "Research-Based Seerah Study Platform",
+  "continueReadingPrompt": "You left your reading here.",
+  "continueReadingButton": "Continue Reading",
+  "chaptersHeading": "Chapters of Seerah",
+  "chapterOneTitle": "Chapter 1: Historical Background",
+  "chapterTwoTitle": "Chapter 2: Birth and Early Childhood",
+  "reliabilityTitle": "Historical Reliability Legend",
+  "reliabilityConfirmed": "Confirmed",
+  "reliabilityWeak": "Weak Narration",
+  "reliabilityDisputed": "Disputed",
+  "readingSettings": "Reading Settings",
+  "fontSizeLabel": "Font Size",
+  "themeToggle": "Reading Theme",
+  "phaseOnePlaceholderNote": "Phase 1: Chapter architecture and Urdu typography setup (historical content will be added in later phases).",
+  "exploreFeaturesHeading": "Research & Reading Tools"
+}

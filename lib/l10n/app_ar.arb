@@ -1,0 +1,19 @@
+{
+  "@@locale": "ar",
+  "appTitle": "السيرة النبوية ﷺ",
+  "appSubtitle": "منصة علمية موثقة لدراسة السيرة النبوية",
+  "continueReadingPrompt": "توقفت عند هذا الموضع في القراءة.",
+  "continueReadingButton": "متابعة القراءة",
+  "chaptersHeading": "أبواب السيرة",
+  "chapterOneTitle": "الباب الأول: الخلفية التاريخية",
+  "chapterTwoTitle": "الباب الثاني: المولد والنشأة",
+  "reliabilityTitle": "دليل درجات التوثيق التاريخي",
+  "reliabilityConfirmed": "ثابت وموثق",
+  "reliabilityWeak": "رواية ضعيفة",
+  "reliabilityDisputed": "مختلف فيه",
+  "readingSettings": "إعدادات القراءة",
+  "fontSizeLabel": "حجم الخط",
+  "themeToggle": "وضع القراءة",
+  "phaseOnePlaceholderNote": "المرحلة الأولى: هيكلة الأبواب وضبط الخطوط (سيتم إدراج المحتوى التاريخي في المراحل القادمة).",
+  "exploreFeaturesHeading": "أدوات البحث والمطالعة"
+}

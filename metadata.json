@@ -1,0 +1,6 @@
+{
+  "name": "Seerat-un-Nabi ﷺ",
+  "description": "Offline-first Flutter, SQLite/Drift, and Riverpod research-based Urdu Seerat-un-Nabi ﷺ reading platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

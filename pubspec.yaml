@@ -1,0 +1,42 @@
+name: seerat_un_nabi
+description: "Complete Seerat-un-Nabi ﷺ — Research-based Urdu Seerah reading platform built with Flutter, Riverpod, and SQLite (sqflite)."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
+  # State Management (Riverpod only)
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^14.6.2
+
+  # Local Offline-First SQLite Database (sqflite)
+  sqflite: ^2.4.1
+  path_provider: ^2.1.5
+  path: ^1.9.0
+
+  # Typography (Urdu Nastaliq & Arabic Naskh/Amiri)
+  google_fonts: ^6.2.1
+
+  # Icons & UI Utilities
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  sqflite_common_ffi: ^2.3.4
+
+flutter:
+  uses-material-design: true
+  generate: true

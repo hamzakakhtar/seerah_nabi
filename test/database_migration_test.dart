@@ -58,63 +58,70 @@ void main() {
 
     final ch2 = await chapterRepo.getFullChapter('chapter_002');
     expect(ch2, isNotNull);
-    expect(ch2!.sections, hasLength(3));
+    expect(ch2!.sections, hasLength(4));
 
     final ch3 = await chapterRepo.getFullChapter('chapter_003');
     expect(ch3, isNotNull);
-    expect(ch3!.sections, hasLength(4));
+    expect(ch3!.sections, hasLength(5));
 
     final ch4 = await chapterRepo.getFullChapter('chapter_004');
     expect(ch4, isNotNull);
-    expect(ch4!.sections, hasLength(4));
+    expect(ch4!.sections, hasLength(5));
 
     final ch5 = await chapterRepo.getFullChapter('chapter_005');
     expect(ch5, isNotNull);
-    expect(ch5!.sections, hasLength(5));
+    expect(ch5!.sections, hasLength(6));
 
     final ch6 = await chapterRepo.getFullChapter('chapter_006');
     expect(ch6, isNotNull);
-    expect(ch6!.sections, hasLength(3));
+    expect(ch6!.sections, hasLength(4));
 
     final ch7 = await chapterRepo.getFullChapter('chapter_007');
     expect(ch7, isNotNull);
-    expect(ch7!.sections, hasLength(4));
+    expect(ch7!.sections, hasLength(5));
 
     final ch8 = await chapterRepo.getFullChapter('chapter_008');
     expect(ch8, isNotNull);
-    expect(ch8!.sections, hasLength(4));
+    expect(ch8!.sections, hasLength(6));
 
     final ch9 = await chapterRepo.getFullChapter('chapter_009');
     expect(ch9, isNotNull);
-    expect(ch9!.sections, hasLength(4));
+    expect(ch9!.sections, hasLength(6));
 
     final ch10 = await chapterRepo.getFullChapter('chapter_010');
     expect(ch10, isNotNull);
-    expect(ch10!.sections, hasLength(3));
+    expect(ch10!.sections, hasLength(5));
 
     final ch11 = await chapterRepo.getFullChapter('chapter_011');
     expect(ch11, isNotNull);
-    expect(ch11!.sections, hasLength(3));
+    expect(ch11!.sections, hasLength(6));
 
     final ch12 = await chapterRepo.getFullChapter('chapter_012');
     expect(ch12, isNotNull);
-    expect(ch12!.sections, hasLength(3));
+    expect(ch12!.sections, hasLength(4));
 
     final ch13 = await chapterRepo.getFullChapter('chapter_013');
     expect(ch13, isNotNull);
-    expect(ch13!.sections, hasLength(3));
+    expect(ch13!.sections, hasLength(5));
 
     final ch14 = await chapterRepo.getFullChapter('chapter_014');
     expect(ch14, isNotNull);
-    expect(ch14!.sections, hasLength(3));
+    expect(ch14!.sections, hasLength(5));
 
     final ch15 = await chapterRepo.getFullChapter('chapter_015');
     expect(ch15, isNotNull);
-    expect(ch15!.sections, hasLength(3));
+    expect(ch15!.sections, hasLength(5));
 
     final ch16 = await chapterRepo.getFullChapter('chapter_016');
     expect(ch16, isNotNull);
-    expect(ch16!.sections, hasLength(3));
+    expect(ch16!.sections, hasLength(6));
+
+    final sqldb = await db.database;
+    final versions = await sqldb.query('research_versions');
+    expect(
+      versions.map((v) => v['version_tag']),
+      contains('v2.0.0-encyclopedic-seerah'),
+    );
 
     final disputedClaims = ch2.sections
         .expand((s) => s.paragraphs)

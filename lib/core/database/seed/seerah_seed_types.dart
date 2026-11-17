@@ -89,13 +89,14 @@ class SeedChapterContent {
   final List<SeedSection> sections;
 }
 
-/// Inserts a complete chapter (metadata, Urdu & Pashto translations, sections,
-/// paragraphs, claims, and evidence links) within an active `sqflite`
-/// transaction.
+/// Inserts or safely updates a complete chapter (metadata, Urdu & Pashto
+/// translations, sections, paragraphs, claims, and evidence links) within an
+/// active `sqflite` transaction without deleting parent rows or breaking FKs.
 Future<void> insertChapterContent(
   DatabaseExecutor txn,
-  SeedChapterContent chapter,
-) async {
+  SeedChapterContent chapter, {
+  bool upsertContent = false,
+}) async {
   await txn.insert(
     'chapters',
     {
@@ -108,9 +109,57 @@ Future<void> insertChapterContent(
     conflictAlgorithm: ConflictAlgorithm.ignore,
   );
 
+  final existingEvidencePairs = <String>{};
+  if (upsertContent) {
+    final evRows = await txn.rawQuery(
+      '''
+      SELECT ce.claim_stable_id, ce.source_reference_stable_id
+      FROM claim_evidence ce
+      INNER JOIN historical_claims hc ON hc.stable_id = ce.claim_stable_id
+      WHERE hc.chapter_stable_id = ?
+      ''',
+      [chapter.stableId],
+    );
+    for (final r in evRows) {
+      final cid = r['claim_stable_id'];
+      final srid = r['source_reference_stable_id'];
+      if (cid is String && srid is String) {
+        existingEvidencePairs.add('$cid:$srid');
+      }
+    }
+  }
+
   final batch = txn.batch();
 
-  batch.insert(
+  void upsertTranslation(
+    String table,
+    Map<String, Object?> insertValues,
+    Map<String, Object?> updateValues,
+    String whereClause,
+    List<Object?> whereArgs,
+  ) {
+    if (upsertContent) {
+      batch.insert(
+        table,
+        insertValues,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      batch.update(
+        table,
+        updateValues,
+        where: whereClause,
+        whereArgs: whereArgs,
+      );
+    } else {
+      batch.insert(
+        table,
+        insertValues,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+  }
+
+  upsertTranslation(
     'chapter_translations',
     {
       'chapter_stable_id': chapter.stableId,
@@ -120,10 +169,17 @@ Future<void> insertChapterContent(
       'era_label': chapter.eraLabelUrdu,
       'summary': chapter.summaryUrdu,
     },
-    conflictAlgorithm: ConflictAlgorithm.ignore,
+    {
+      'title': chapter.titleUrdu,
+      'subtitle': chapter.subtitleUrdu,
+      'era_label': chapter.eraLabelUrdu,
+      'summary': chapter.summaryUrdu,
+    },
+    'chapter_stable_id = ? AND language_code = ?',
+    [chapter.stableId, 'ur'],
   );
 
-  batch.insert(
+  upsertTranslation(
     'chapter_translations',
     {
       'chapter_stable_id': chapter.stableId,
@@ -133,7 +189,14 @@ Future<void> insertChapterContent(
       'era_label': chapter.eraLabelPashto,
       'summary': chapter.summaryPashto,
     },
-    conflictAlgorithm: ConflictAlgorithm.ignore,
+    {
+      'title': chapter.titlePashto,
+      'subtitle': chapter.subtitlePashto,
+      'era_label': chapter.eraLabelPashto,
+      'summary': chapter.summaryPashto,
+    },
+    'chapter_stable_id = ? AND language_code = ?',
+    [chapter.stableId, 'ps'],
   );
 
   for (final section in chapter.sections) {
@@ -146,15 +209,25 @@ Future<void> insertChapterContent(
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
+    if (upsertContent) {
+      batch.update(
+        'sections',
+        {'order_index': section.orderIndex},
+        where: 'stable_id = ?',
+        whereArgs: [section.stableId],
+      );
+    }
 
-    batch.insert(
+    upsertTranslation(
       'section_translations',
       {
         'section_stable_id': section.stableId,
         'language_code': 'ur',
         'title': section.titleUrdu,
       },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
+      {'title': section.titleUrdu},
+      'section_stable_id = ? AND language_code = ?',
+      [section.stableId, 'ur'],
     );
 
     for (final paragraph in section.paragraphs) {
@@ -169,15 +242,29 @@ Future<void> insertChapterContent(
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+      if (upsertContent) {
+        batch.update(
+          'paragraphs',
+          {
+            'section_stable_id': section.stableId,
+            'order_index': paragraph.orderIndex,
+            'is_daily_eligible': paragraph.isDailyEligible ? 1 : 0,
+          },
+          where: 'stable_id = ?',
+          whereArgs: [paragraph.stableId],
+        );
+      }
 
-      batch.insert(
+      upsertTranslation(
         'paragraph_translations',
         {
           'paragraph_stable_id': paragraph.stableId,
           'language_code': 'ur',
           'plain_text': paragraph.plainText,
         },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
+        {'plain_text': paragraph.plainText},
+        'paragraph_stable_id = ? AND language_code = ?',
+        [paragraph.stableId, 'ur'],
       );
 
       for (final claim in paragraph.claims) {
@@ -195,30 +282,52 @@ Future<void> insertChapterContent(
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
+        if (upsertContent) {
+          batch.update(
+            'historical_claims',
+            {
+              'paragraph_stable_id': paragraph.stableId,
+              'order_in_paragraph': claim.order,
+              'reliability_status': claim.status.storageValue,
+              'classification_reason': claim.reason,
+              'scholarly_assessment': claim.assessment,
+              'is_chronologically_verified': 1,
+            },
+            where: 'stable_id = ?',
+            whereArgs: [claim.stableId],
+          );
+        }
 
-        batch.insert(
+        upsertTranslation(
           'historical_claim_translations',
           {
             'claim_stable_id': claim.stableId,
             'language_code': 'ur',
             'claim_text': claim.text,
           },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
+          {'claim_text': claim.text},
+          'claim_stable_id = ? AND language_code = ?',
+          [claim.stableId, 'ur'],
         );
 
-        batch.insert(
-          'claim_evidence',
-          {
-            'claim_stable_id': claim.stableId,
-            'source_reference_stable_id': claim.sourceRefId,
-            'evidence_role': claim.evidenceRole,
-            'notes_urdu': claim.evidenceNotes,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
+        final evKey = '${claim.stableId}:${claim.sourceRefId}';
+        if (!upsertContent || !existingEvidencePairs.contains(evKey)) {
+          existingEvidencePairs.add(evKey);
+          batch.insert(
+            'claim_evidence',
+            {
+              'claim_stable_id': claim.stableId,
+              'source_reference_stable_id': claim.sourceRefId,
+              'evidence_role': claim.evidenceRole,
+              'notes_urdu': claim.evidenceNotes,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
       }
     }
   }
 
   await batch.commit(noResult: true);
 }
+

@@ -53,6 +53,15 @@ final class SeerahDatabaseSeeder {
     final existingChapterIds = existingChapters
         .map((c) => AppDatabase.readString(c['stable_id']))
         .toSet();
+    final existingVersions = await db.query(
+      'research_versions',
+      columns: ['version_tag'],
+    );
+    final hasEncyclopedicV2 = existingVersions.any(
+      (v) =>
+          AppDatabase.readString(v['version_tag']) ==
+          'v2.0.0-encyclopedic-seerah',
+    );
 
     await db.transaction((txn) async {
       await _seedSupportedLanguages(txn);
@@ -61,6 +70,8 @@ final class SeerahDatabaseSeeder {
       for (final chapter in allChapterSeeds) {
         if (!existingChapterIds.contains(chapter.stableId)) {
           await insertChapterContent(txn, chapter);
+        } else if (!hasEncyclopedicV2) {
+          await insertChapterContent(txn, chapter, upsertContent: true);
         }
       }
 
@@ -571,6 +582,14 @@ final class SeerahDatabaseSeeder {
       await txn.insert('research_versions', {
               'version_tag': 'v1.4.1-search-and-chronology',
               'change_summary_urdu': 'تمام ۱۶ ابواب کے لیے مکمل آف لائن تلاش، تاریخی نقشہ جات، اور زمانی خطِ سیر کی جامع توثیق و ہم آہنگی۔',
+              'revised_by': 'Seerah Research Editorial Board',
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    if (!existingTags.contains('v2.0.0-encyclopedic-seerah')) {
+      await txn.insert('research_versions', {
+              'version_tag': 'v2.0.0-encyclopedic-seerah',
+              'chapter_stable_id': 'chapter_001',
+              'change_summary_urdu': 'تمام ۱۶ ابواب کی مکمل، تفصیلی اور مرحلہ وار توسیع: غزوات کی ابتدا تا انجام مکمل جنگی و تاریخی جزئیات، کبار صحابہ کے قبولِ اسلام و اولین ملاقات کے واقعات، اور شمائل، اخلاق، رضا، ناراضی، منہیات و اقوالِ نبوی ﷺ کا جامع بیان۔',
               'revised_by': 'Seerah Research Editorial Board',
             }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }

@@ -1,6 +1,21 @@
 import 'package:seerat_un_nabi/shared/models/reliability_status.dart';
 import 'package:sqflite/sqflite.dart';
 
+/// Additional primary reference link attached to a single [SeedClaim].
+class SeedEvidenceLink {
+  const SeedEvidenceLink({
+    required this.sourceRefId,
+    required this.evidenceRole,
+    required this.evidenceNotes,
+    this.narrationId,
+  });
+
+  final String sourceRefId;
+  final String evidenceRole;
+  final String evidenceNotes;
+  final String? narrationId;
+}
+
 /// Shared immutable seed data contracts for Seerah chapters, sections,
 /// paragraphs, claims, and primary evidence backed by plain `sqflite`.
 class SeedClaim {
@@ -14,6 +29,7 @@ class SeedClaim {
     required this.sourceRefId,
     required this.evidenceRole,
     required this.evidenceNotes,
+    this.extraEvidence = const <SeedEvidenceLink>[],
   });
 
   final String stableId;
@@ -25,6 +41,7 @@ class SeedClaim {
   final String sourceRefId;
   final String evidenceRole;
   final String evidenceNotes;
+  final List<SeedEvidenceLink> extraEvidence;
 }
 
 class SeedParagraph {
@@ -96,6 +113,7 @@ Future<void> insertChapterContent(
   DatabaseExecutor txn,
   SeedChapterContent chapter, {
   bool upsertContent = false,
+  bool replaceSections = false,
 }) async {
   await txn.insert(
     'chapters',
@@ -109,8 +127,30 @@ Future<void> insertChapterContent(
     conflictAlgorithm: ConflictAlgorithm.ignore,
   );
 
-  final existingEvidencePairs = <String>{};
   if (upsertContent) {
+    await txn.update(
+      'chapters',
+      {
+        'order_index': chapter.orderIndex,
+        'era_code': chapter.eraCode,
+        'route_key': chapter.routeKey,
+        'is_published': 1,
+      },
+      where: 'stable_id = ?',
+      whereArgs: [chapter.stableId],
+    );
+  }
+
+  if (upsertContent && replaceSections) {
+    await txn.delete(
+      'sections',
+      where: 'chapter_stable_id = ?',
+      whereArgs: [chapter.stableId],
+    );
+  }
+
+  final existingEvidencePairs = <String>{};
+  if (upsertContent && !replaceSections) {
     final evRows = await txn.rawQuery(
       '''
       SELECT ce.claim_stable_id, ce.source_reference_stable_id
@@ -311,7 +351,7 @@ Future<void> insertChapterContent(
         );
 
         final evKey = '${claim.stableId}:${claim.sourceRefId}';
-        if (!upsertContent || !existingEvidencePairs.contains(evKey)) {
+        if (!upsertContent || replaceSections || !existingEvidencePairs.contains(evKey)) {
           existingEvidencePairs.add(evKey);
           batch.insert(
             'claim_evidence',
@@ -323,6 +363,24 @@ Future<void> insertChapterContent(
             },
             conflictAlgorithm: ConflictAlgorithm.ignore,
           );
+        }
+
+        for (final extra in claim.extraEvidence) {
+          final extraKey = '${claim.stableId}:${extra.sourceRefId}';
+          if (!upsertContent || replaceSections || !existingEvidencePairs.contains(extraKey)) {
+            existingEvidencePairs.add(extraKey);
+            batch.insert(
+              'claim_evidence',
+              {
+                'claim_stable_id': claim.stableId,
+                'source_reference_stable_id': extra.sourceRefId,
+                if (extra.narrationId != null) 'narration_stable_id': extra.narrationId,
+                'evidence_role': extra.evidenceRole,
+                'notes_urdu': extra.evidenceNotes,
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          }
         }
       }
     }

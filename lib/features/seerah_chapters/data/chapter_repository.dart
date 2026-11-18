@@ -309,27 +309,34 @@ final class SqliteChapterRepository implements ChapterRepository {
     String languageCode,
   ) async {
     if (sectionIds.isEmpty) return const {};
-    final ph = AppDatabase.placeholders(sectionIds.length);
-    final rows = await db.query(
-      'section_translations',
-      where: 'section_stable_id IN ($ph) AND language_code = ?',
-      whereArgs: [...sectionIds, languageCode],
-    );
-    final fallbackRows = languageCode == AppConstants.defaultLanguageCode
-        ? rows
-        : await db.query(
-            'section_translations',
-            where: 'section_stable_id IN ($ph) AND language_code = ?',
-            whereArgs: [...sectionIds, AppConstants.defaultLanguageCode],
-          );
-    return {
-      for (final r in fallbackRows)
-        AppDatabase.readString(r['section_stable_id']):
-            AppDatabase.readString(r['title']),
-      for (final r in rows)
-        AppDatabase.readString(r['section_stable_id']):
-            AppDatabase.readString(r['title']),
-    };
+    final result = <String, String>{};
+    const chunkSize = 400;
+    for (var i = 0; i < sectionIds.length; i += chunkSize) {
+      final end = (i + chunkSize < sectionIds.length) ? i + chunkSize : sectionIds.length;
+      final chunk = sectionIds.sublist(i, end);
+      final ph = AppDatabase.placeholders(chunk.length);
+      final rows = await db.query(
+        'section_translations',
+        where: 'section_stable_id IN ($ph) AND language_code = ?',
+        whereArgs: [...chunk, languageCode],
+      );
+      final fallbackRows = languageCode == AppConstants.defaultLanguageCode
+          ? rows
+          : await db.query(
+              'section_translations',
+              where: 'section_stable_id IN ($ph) AND language_code = ?',
+              whereArgs: [...chunk, AppConstants.defaultLanguageCode],
+            );
+      for (final r in fallbackRows) {
+        result[AppDatabase.readString(r['section_stable_id'])] =
+            AppDatabase.readString(r['title']);
+      }
+      for (final r in rows) {
+        result[AppDatabase.readString(r['section_stable_id'])] =
+            AppDatabase.readString(r['title']);
+      }
+    }
+    return result;
   }
 
   Future<Map<String, String>> _loadParagraphTextMap(
@@ -338,27 +345,34 @@ final class SqliteChapterRepository implements ChapterRepository {
     String languageCode,
   ) async {
     if (paragraphIds.isEmpty) return const {};
-    final ph = AppDatabase.placeholders(paragraphIds.length);
-    final rows = await db.query(
-      'paragraph_translations',
-      where: 'paragraph_stable_id IN ($ph) AND language_code = ?',
-      whereArgs: [...paragraphIds, languageCode],
-    );
-    final fallbackRows = languageCode == AppConstants.defaultLanguageCode
-        ? rows
-        : await db.query(
-            'paragraph_translations',
-            where: 'paragraph_stable_id IN ($ph) AND language_code = ?',
-            whereArgs: [...paragraphIds, AppConstants.defaultLanguageCode],
-          );
-    return {
-      for (final r in fallbackRows)
-        AppDatabase.readString(r['paragraph_stable_id']):
-            AppDatabase.readString(r['plain_text']),
-      for (final r in rows)
-        AppDatabase.readString(r['paragraph_stable_id']):
-            AppDatabase.readString(r['plain_text']),
-    };
+    final result = <String, String>{};
+    const chunkSize = 400;
+    for (var i = 0; i < paragraphIds.length; i += chunkSize) {
+      final end = (i + chunkSize < paragraphIds.length) ? i + chunkSize : paragraphIds.length;
+      final chunk = paragraphIds.sublist(i, end);
+      final ph = AppDatabase.placeholders(chunk.length);
+      final rows = await db.query(
+        'paragraph_translations',
+        where: 'paragraph_stable_id IN ($ph) AND language_code = ?',
+        whereArgs: [...chunk, languageCode],
+      );
+      final fallbackRows = languageCode == AppConstants.defaultLanguageCode
+          ? rows
+          : await db.query(
+              'paragraph_translations',
+              where: 'paragraph_stable_id IN ($ph) AND language_code = ?',
+              whereArgs: [...chunk, AppConstants.defaultLanguageCode],
+            );
+      for (final r in fallbackRows) {
+        result[AppDatabase.readString(r['paragraph_stable_id'])] =
+            AppDatabase.readString(r['plain_text']);
+      }
+      for (final r in rows) {
+        result[AppDatabase.readString(r['paragraph_stable_id'])] =
+            AppDatabase.readString(r['plain_text']);
+      }
+    }
+    return result;
   }
 
   Future<Map<String, Map<String, Object?>>> _loadClaimTranslationMap(
@@ -367,23 +381,31 @@ final class SqliteChapterRepository implements ChapterRepository {
     String languageCode,
   ) async {
     if (claimIds.isEmpty) return const {};
-    final ph = AppDatabase.placeholders(claimIds.length);
-    final rows = await db.query(
-      'historical_claim_translations',
-      where: 'claim_stable_id IN ($ph) AND language_code = ?',
-      whereArgs: [...claimIds, languageCode],
-    );
-    final fallbackRows = languageCode == AppConstants.defaultLanguageCode
-        ? rows
-        : await db.query(
-            'historical_claim_translations',
-            where: 'claim_stable_id IN ($ph) AND language_code = ?',
-            whereArgs: [...claimIds, AppConstants.defaultLanguageCode],
-          );
-    return {
-      for (final r in fallbackRows)
-        AppDatabase.readString(r['claim_stable_id']): r,
-      for (final r in rows) AppDatabase.readString(r['claim_stable_id']): r,
-    };
+    final result = <String, Map<String, Object?>>{};
+    const chunkSize = 400;
+    for (var i = 0; i < claimIds.length; i += chunkSize) {
+      final end = (i + chunkSize < claimIds.length) ? i + chunkSize : claimIds.length;
+      final chunk = claimIds.sublist(i, end);
+      final ph = AppDatabase.placeholders(chunk.length);
+      final rows = await db.query(
+        'historical_claim_translations',
+        where: 'claim_stable_id IN ($ph) AND language_code = ?',
+        whereArgs: [...chunk, languageCode],
+      );
+      final fallbackRows = languageCode == AppConstants.defaultLanguageCode
+          ? rows
+          : await db.query(
+              'historical_claim_translations',
+              where: 'claim_stable_id IN ($ph) AND language_code = ?',
+              whereArgs: [...chunk, AppConstants.defaultLanguageCode],
+            );
+      for (final r in fallbackRows) {
+        result[AppDatabase.readString(r['claim_stable_id'])] = r;
+      }
+      for (final r in rows) {
+        result[AppDatabase.readString(r['claim_stable_id'])] = r;
+      }
+    }
+    return result;
   }
 }

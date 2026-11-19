@@ -17,7 +17,11 @@ import 'package:seerat_un_nabi/core/database/seed/chapters/chapter_14_seed.dart'
 import 'package:seerat_un_nabi/core/database/seed/chapters/chapter_15_seed.dart';
 import 'package:seerat_un_nabi/core/database/seed/chapters/chapter_16_seed.dart';
 import 'package:seerat_un_nabi/core/database/seed/seerah_seed_types.dart';
+import 'package:seerat_un_nabi/core/database/seed/seerah_sources_seed.dart';
 import 'package:seerat_un_nabi/shared/models/reliability_status.dart';
+
+/// Current book-length content seed version tag.
+const String kCurrentContentVersion = 'v3.0.0-book-length-seerah';
 
 /// Ordered registry of all 16 researched Urdu & Pashto Seerah chapters.
 const List<SeedChapterContent> allChapterSeeds = <SeedChapterContent>[
@@ -53,6 +57,13 @@ final class SeerahDatabaseSeeder {
     final existingChapterIds = existingChapters
         .map((c) => AppDatabase.readString(c['stable_id']))
         .toSet();
+    final existingVersions = await db.query(
+      'research_versions',
+      columns: ['version_tag'],
+    );
+    final hasBookLengthV3 = existingVersions.any(
+      (v) => AppDatabase.readString(v['version_tag']) == kCurrentContentVersion,
+    );
 
     await db.transaction((txn) async {
       await _seedSupportedLanguages(txn);
@@ -61,6 +72,13 @@ final class SeerahDatabaseSeeder {
       for (final chapter in allChapterSeeds) {
         if (!existingChapterIds.contains(chapter.stableId)) {
           await insertChapterContent(txn, chapter);
+        } else if (!hasBookLengthV3) {
+          await insertChapterContent(
+            txn,
+            chapter,
+            upsertContent: true,
+            replaceSections: true,
+          );
         }
       }
 
@@ -83,438 +101,45 @@ final class SeerahDatabaseSeeder {
 
   Future<void> _seedSources(DatabaseExecutor txn) async {
     final batch = txn.batch();
-    for (final row in <Map<String, Object?>>[
-        {
-          'stable_id': 'src_quran',
-          'title_arabic': 'القرآن الكريم',
-          'title_urdu': 'قرآنِ کریم',
-          'author_arabic': 'وحي إلهي',
-          'author_urdu': 'کلامِ الٰہی',
-          'tradition': 'sunni',
-          'source_type': 'quran',
-        },
-        {
-          'stable_id': 'src_ibn_hisham',
-          'title_arabic': 'السيرة النبوية لابن هشام',
-          'title_urdu': 'سیرت ابنِ ہشام',
-          'author_arabic': 'عبد الملك بن هشام',
-          'author_urdu': 'عبدالملک بن ہشام',
-          'tradition': 'classical_history',
-          'author_death_hijri': 218,
-          'source_type': 'seerah',
-        },
-        {
-          'stable_id': 'src_ibn_sad',
-          'title_arabic': 'الطبقات الكبرى',
-          'title_urdu': 'طبقاتِ ابنِ سعد',
-          'author_arabic': 'محمد بن سعد',
-          'author_urdu': 'محمد بن سعد',
-          'tradition': 'classical_history',
-          'author_death_hijri': 230,
-          'source_type': 'seerah',
-        },
-        {
-          'stable_id': 'src_tabari',
-          'title_arabic': 'تاريخ الرسل والملوك',
-          'title_urdu': 'تاریخِ طبری',
-          'author_arabic': 'محمد بن جرير الطبري',
-          'author_urdu': 'امام محمد بن جریر طبری',
-          'tradition': 'classical_history',
-          'author_death_hijri': 310,
-          'source_type': 'tarikh',
-        },
-        {
-          'stable_id': 'src_bukhari',
-          'title_arabic': 'الجامع الصحيح (صحيح البخاري)',
-          'title_urdu': 'صحیح بخاری',
-          'author_arabic': 'محمد بن إسماعيل البخاري',
-          'author_urdu': 'امام محمد بن اسماعیل بخاری',
-          'tradition': 'sunni',
-          'author_death_hijri': 256,
-          'source_type': 'hadith',
-        },
-        {
-          'stable_id': 'src_muslim',
-          'title_arabic': 'المسند الصحيح (صحيح مسلم)',
-          'title_urdu': 'صحیح مسلم',
-          'author_arabic': 'مسلم بن الحجاج النيسابوري',
-          'author_urdu': 'امام مسلم بن حجاج نیشاپوری',
-          'tradition': 'sunni',
-          'author_death_hijri': 261,
-          'source_type': 'hadith',
-        },
-        {
-          'stable_id': 'src_yaqubi',
-          'title_arabic': 'تاريخ اليعقوبي',
-          'title_urdu': 'تاریخِ یعقوبی',
-          'author_arabic': 'أحمد بن أبي يعقوب اليعقوبي',
-          'author_urdu': 'احمد بن ابی یعقوب اليعقوبي',
-          'tradition': 'shia',
-          'author_death_hijri': 292,
-          'source_type': 'tarikh',
-        },
-        {
-          'stable_id': 'src_musnad_ahmad',
-          'title_arabic': 'المسند للإمام أحمد بن حنبل',
-          'title_urdu': 'مسندِ امام احمد',
-          'author_arabic': 'الإمام أحمد بن حنبل',
-          'author_urdu': 'امام احمد بن حنبل رحمہ اللہ',
-          'tradition': 'sunni',
-          'author_death_hijri': 241,
-          'source_type': 'hadith',
-        },
-        {
-          'stable_id': 'src_tirmidhi',
-          'title_arabic': 'الشمائل المحمدية وسنن الترمذي',
-          'title_urdu': 'شمائلِ ترمذی و جامع ترمذی',
-          'author_arabic': 'أبو عيسى محمد بن عيسى الترمذي',
-          'author_urdu': 'امام ابو عیسیٰ محمد بن عیسیٰ ترمذی رحمہ اللہ',
-          'tradition': 'sunni',
-          'author_death_hijri': 279,
-          'source_type': 'hadith',
-        },
-      ]) {
+    for (final row in seerahPrimarySources) {
       batch.insert('sources', row, conflictAlgorithm: ConflictAlgorithm.ignore);
+      batch.update(
+        'sources',
+        {
+          'title_arabic': row['title_arabic'],
+          'title_urdu': row['title_urdu'],
+          'author_arabic': row['author_arabic'],
+          'author_urdu': row['author_urdu'],
+          'tradition': row['tradition'],
+          'author_death_hijri': row['author_death_hijri'],
+          'source_type': row['source_type'],
+        },
+        where: 'stable_id = ?',
+        whereArgs: [row['stable_id']],
+      );
     }
 
-    for (final row in <Map<String, Object?>>[
+    for (final row in seerahSourceReferences) {
+      batch.insert(
+        'source_references',
+        row,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      batch.update(
+        'source_references',
         {
-          'stable_id': 'ref_quran_fil',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ الفیل (105: 1–5)',
-          'original_arabic_excerpt': 'أَلَمْ تَرَ كَيْفَ فَعَلَ رَبُّكَ بِأَصْحَابِ الْفِيلِ',
-          'urdu_translation': 'کیا آپ نے نہیں دیکھا کہ آپ کے رب نے ہاتھی والوں کے ساتھ کیا معاملہ فرمایا۔',
+          'source_stable_id': row['source_stable_id'],
+          'volume': row['volume'] ?? '',
+          'page_number': row['page_number'] ?? '',
+          'section_or_hadith_number': row['section_or_hadith_number'] ?? '',
+          'original_arabic_excerpt': row['original_arabic_excerpt'] ?? '',
+          'urdu_translation': row['urdu_translation'] ?? '',
         },
-        {
-          'stable_id': 'ref_ibn_hisham_lineage',
-          'source_stable_id': 'src_ibn_hisham',
-          'section_or_hadith_number': 'ذكر نسب رسول الله ﷺ',
-          'urdu_translation': 'رسول اللہ ﷺ کا نسبِ مبارک عدنان تک متفقہ طور پر منقول ہے۔',
-        },
-        {
-          'stable_id': 'ref_ibn_sad_abdullah',
-          'source_stable_id': 'src_ibn_sad',
-          'section_or_hadith_number': 'ذكر تزوج عبد الله بن عبد المطلب آمنة',
-          'urdu_translation': 'حضرت عبداللہ اور سیدہ آمنہ کے نکاح، سفرِ شام اور مدینہ میں وفات کا تذکرہ۔',
-        },
-        {
-          'stable_id': 'ref_tabari_vow',
-          'source_stable_id': 'src_tabari',
-          'section_or_hadith_number': 'نذر عبد المطلب',
-          'urdu_translation': 'عبدالمطلب کی نذر اور قرعہ اندازی سے متعلق روایات میں اسنادی اور تفصیلی اختلافات موجود ہیں۔',
-        },
-        {
-          'stable_id': 'ref_muslim_monday',
-          'source_stable_id': 'src_muslim',
-          'section_or_hadith_number': 'كتاب الصيام — باب استحباب صيام ثلاثة أيام',
-          'original_arabic_excerpt': 'ذَاكَ يَوْمٌ وُلِدْتُ فِيهِ، وَيَوْمٌ بُعِثْتُ أَوْ أُنْزِلَ عَلَيَّ فِيهِ',
-          'urdu_translation': 'پیر کے دن کے روزے کے بارے میں آپ ﷺ نے فرمایا: یہی وہ دن ہے جس میں میری ولادت ہوئی اور اسی میں مجھ پر وحی نازل ہوئی۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_thuwaybah',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب النكاح — وأمهاتكم اللاتي أرضعنكم',
-          'urdu_translation': 'حضرت ثویبہ رضی اللہ عنہا کے دودھ پلانے کی صحیح روایت۔',
-        },
-        {
-          'stable_id': 'ref_ibn_hisham_halimah',
-          'source_stable_id': 'src_ibn_hisham',
-          'section_or_hadith_number': 'رضاعته ﷺ في بني سعد',
-          'urdu_translation': 'قبیلۂ بنی سعد میں سیدہ حلیمہ سعدیہ کے پاس پرورش اور رضاعت کا بیان۔',
-        },
-        {
-          'stable_id': 'ref_yaqubi_birth_date',
-          'source_stable_id': 'src_yaqubi',
-          'section_or_hadith_number': 'ولادة النبي ﷺ',
-          'urdu_translation': 'تاریخِ ولادت کے دن اور مہینے کے بارے میں مؤرخین کے متعدد اقوال کا ذکر۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_shepherd',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب الإجارة — باب رعي الغنم على قراريط',
-          'original_arabic_excerpt': 'مَا بَعَثَ اللَّهُ نَبِيًّا إِلَّا رَعَى الْغَنَمَ، قَالَ أَصْحَابُهُ: وَأَنْتَ؟ قَالَ: نَعَمْ، كُنْتُ أَرْعَاهَا عَلَى قَرَارِيطَ لِأَهْلِ مَكَّةَ',
-          'urdu_translation': 'اللہ تعالیٰ نے کوئی نبی نہیں بھیجا مگر اس نے بکریاں چرائی ہوں؛ صحابہ کے سوال پر آپ ﷺ نے فرمایا: ہاں، میں بھی اہلِ مکہ کی بکریاں چند قیراط کے عوض چرایا کرتا تھا۔',
-        },
-        {
-          'stable_id': 'ref_musnad_hilf',
-          'source_stable_id': 'src_musnad_ahmad',
-          'section_or_hadith_number': 'مسند عبد الرحمن بن عوف رضي الله عنه',
-          'urdu_translation': 'رسول اللہ ﷺ نے بعثت کے بعد حلف الفضول کا ذکر فرمایا کہ میں عبداللہ بن جدعان کے گھر ایک ایسے معاہدے میں شریک تھا جس کے بدلے میں سرخ اونٹ بھی لینا پسند نہ کرتا۔',
-        },
-        {
-          'stable_id': 'ref_ibn_hisham_khadijah',
-          'source_stable_id': 'src_ibn_hisham',
-          'section_or_hadith_number': 'خروجه ﷺ إلى الشام في مال خديجة وبناء الكعبة',
-          'urdu_translation': 'سیدہ خدیجہ کے تجارتی مال کے ساتھ سفرِ شام، نکاحِ مبارک اور قریش کی جانب سے تعمیرِ کعبہ و تنصیبِ حجرِ اسود کا تذکرہ۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_kabah',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب الحج — باب فضل مكة وبنيانها',
-          'urdu_translation': 'قریش کی جانب سے کعبہ کی تعمیر میں حلال مال کم پڑنے پر حطیم کا حصہ عمارت سے باہر چھوڑ دینے کی صحیح روایت۔',
-        },
-        {
-          'stable_id': 'ref_quran_alaq',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ العلق (96: 1–5)',
-          'original_arabic_excerpt': 'اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ ۝ خَلَقَ الْإِنسَانَ مِنْ عَلَقٍ',
-          'urdu_translation': 'پڑھیے اپنے رب کے نام سے جس نے پیدا کیا، جس نے انسان کو جمے ہوئے خون سے پیدا فرمایا۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_wahy',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب بدء الوحي — حديث أم المؤمنين عائشة',
-          'urdu_translation': 'غارِ حرا میں تحنّث، حضرت جبریل علیہ السلام کی آمد، سیدہ خدیجہ کی تسلّی اور ورقہ بن نوفل کی گواہی کی مفصل صحیح حدیث۔',
-        },
-        {
-          'stable_id': 'ref_quran_shuara',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ الشعراء (26: 214)',
-          'original_arabic_excerpt': 'وَأَنذِرْ عَشِيرَتَكَ الْأَقْرَبِينَ',
-          'urdu_translation': 'اور اپنے قریبی خاندان والوں کو ڈرائیے۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_safa',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب التفسير — باب وأنذر عشيرتك الأقربين',
-          'urdu_translation': 'کوہِ صفا پر چڑھ کر قریش کے قبائل کو جمع فرمانے، دعوتِ توحید پیش کرنے اور ابو لہب کی مخالفت کی صحیح روایت۔',
-        },
-        {
-          'stable_id': 'ref_ibn_hisham_habashah',
-          'source_stable_id': 'src_ibn_hisham',
-          'section_or_hadith_number': 'الهجرة الأولى والثانية إلى أرض الحبشة',
-          'urdu_translation': 'مکہ میں مظالم کے بعد صحابۂ کرام کی حبشہ کی طرف ہجرت اور نجاشی کے دربار میں حضرت جعفر بن ابی طالب کا بیان۔',
-        },
-        {
-          'stable_id': 'ref_ibn_sad_boycott',
-          'source_stable_id': 'src_ibn_sad',
-          'section_or_hadith_number': 'ذكر حصر قريش بني هاشم في الشعب ووفاة أبي طالب وخديجة',
-          'urdu_translation': 'شعبِ ابی طالب میں بنی ہاشم و بنی المطلب کی تین سالہ محصوری اور نبوت کے دسویں سال ابو طالب و سیدہ خدیجہ کی وفات کا بیان۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_taif',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب بدء الخلق — حديث عائشة في يوم العقبة والطائف',
-          'urdu_translation': 'طائف سے واپسی پر آپ ﷺ کی دعا و تکلیف اور ملک الجبال کی حاضری کے وقت اہلِ طائف کے لیے ہدایت کی امید کی صحیح روایت۔',
-        },
-        {
-          'stable_id': 'ref_quran_isra',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ الإسراء (17: 1)',
-          'original_arabic_excerpt': 'سُبْحَانَ الَّذِي أَسْرَىٰ بِعَبْدِهِ لَيْلًا مِّنَ الْمَسْجِدِ الْحَرَامِ إِلَى الْمَسْجِدِ الْأَقْصَى',
-          'urdu_translation': 'پاک ہے وہ ذات جو اپنے بندے کو رات کے ایک حصے میں مسجدِ حرام سے مسجدِ اقصیٰ تک لے گئی۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_aqabah',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب مناقب الأنصار — باب وفود الأنصار وبيعة العقبة',
-          'urdu_translation': 'موسمِ حج میں اہلِ یثرب سے ملاقات، بیعتِ عقبہ اولیٰ و ثانیہ اور حضرت مصعب بن عمیر کی مدینہ روانگی کا تذکرہ۔',
-        },
-        {
-          'stable_id': 'ref_quran_tawbah_cave',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ التوبۃ (9: 40)',
-          'original_arabic_excerpt': 'ثَانِيَ اثْنَيْنِ إِذْ هُمَا فِي الْغَارِ إِذْ يَقُولُ لِصَاحِبِهِ لَا تَحْزَنْ إِنَّ اللَّهَ مَعَنَا',
-          'urdu_translation': 'جب دونوں غار میں تھے اور آپ ﷺ اپنے ساتھی (حضرت ابوبکر) سے فرما رہے تھے کہ غم نہ کرو بے شک اللہ ہمارے ساتھ ہے۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_hijrah',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب مناقب الأنصار — باب هجرة النبي ﷺ وأصحابه إلى المدينة',
-          'urdu_translation': 'ہجرتِ مدینہ، غارِ ثور، سراقہ بن مالک کے تعاقب، قباء میں قیام اور اہلِ مدینہ کے والہانہ استقبال کی مفصل صحیح احادیث۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_masjid',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب مناقب الأنصار — باب بناء المسجد والمؤاخاة',
-          'urdu_translation': 'مسجدِ نبوی ﷺ کی تعمیر اور مہاجرین و انصار کے درمیان مواخات کے قیام کی صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_ibn_hisham_sahifah',
-          'source_stable_id': 'src_ibn_hisham',
-          'section_or_hadith_number': 'كتاب النبي ﷺ بين المهاجرين والأنصار وموادعة يهود',
-          'urdu_translation': 'مدینہ منورہ میں مہاجرین، انصار اور قبائلِ یہود کے باہمی حقوق و فرائض پر مشتمل آئینی دستاویز (میثاقِ مدینہ) کا متن۔',
-        },
-        {
-          'stable_id': 'ref_quran_anfal_badr',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ الأنفال (8: 7–12، 42)',
-          'urdu_translation': 'غزوۂ بدر کے اسباب، تعداد کے فرق اور اہلِ ایمان کی غیبی نصرت کا قرآنی بیان۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_badr',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب غزوة بدر الكبرى',
-          'urdu_translation': 'رمضان 2 ہجری میں بدر کے مقام پر معرکۂ حق و باطل اور اس کے نتائج کی صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_quran_ali_imran_uhud',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ آلِ عمران (3: 121–172)',
-          'urdu_translation': 'غزوۂ اُحد کی تیاری، تیر اندازوں کے مورچے، آزمائش و ثباتِ قدم اور نتائج کا قرآنی تبصرہ۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_uhud',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب غزوة أحد',
-          'urdu_translation': 'شوال 3 ہجری میں پیش آنے والے غزوۂ اُحد، شہادتِ حضرت حمزہ اور صحابۂ کرام کی استقامت کی صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_quran_ahzab',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ الأحزاب (33: 9–27)',
-          'urdu_translation': 'غزوۂ خندق (احزاب) میں محاصرۂ مدینہ، غیبی نصرت اور بنو قریظہ کے انجام کا قرآنی بیان۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_khandaq',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب غزوة الخندق وهي الأحزاب',
-          'urdu_translation': '5 ہجری میں خندق کی کھدائی، اتحادی لشکروں کے محاصرے اور حضرت سعد بن معاذ کے فیصلے کی صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_quran_fath_hudaybiyyah',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ الفتح (48: 1، 18، 24)',
-          'urdu_translation': 'بیعتِ رضوان اور صلحِ حدیبیہ کو فتحِ مبین قرار دیے جانے کا قرآنی تذکرہ۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_hudaybiyyah',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب الشروط — باب الشروط في الجهاد والمصالحة',
-          'urdu_translation': 'ذی القعدہ 6 ہجری میں صلحِ حدیبیہ کی شرائط، بیعتِ رضوان اور اس کے دور رس اثرات کی مفصل صحیح حدیث۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_letters',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب بدء الوحي وكتاب الجهاد — مکاتیبِ نبوی ﷺ بنامِ ملوک',
-          'urdu_translation': 'صلحِ حدیبیہ کے بعد ہرقل (قیصرِ روم)، کسریٰ، مقوقس اور نجاشی سمیت سلاطین کو دعوتی خطوط کی ارسالگی کا بیان۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_khaybar',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب غزوة خيبر',
-          'urdu_translation': '7 ہجری میں قلعہ بند خطۂ خیبر کی فتح اور حضرت علی رضی اللہ عنہ کے ہاتھوں پرچمِ فتح کی صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_fath_makkah',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب غزوة الفتح في رمضان',
-          'urdu_translation': 'رمضان 8 ہجری میں مکہ مکرمہ کی پرامن فتح، بتوں کے خاتمے اور عام معافی کی صحیح احادیث۔',
-        },
-        {
-          'stable_id': 'ref_quran_tawbah_hunayn_tabuk',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ التوبۃ (9: 25–26، 117–118)',
-          'urdu_translation': 'غزوۂ حنین میں کثرتِ تعداد پر آزمائش اور غزوۂ تبوک (ساعۃ العسرۃ) کا قرآنی بیان۔',
-        },
-        {
-          'stable_id': 'ref_muslim_hajj_wida',
-          'source_stable_id': 'src_muslim',
-          'section_or_hadith_number': 'كتاب الحج — باب حجة النبي ﷺ (حدیثِ جابر)',
-          'original_arabic_excerpt': 'إِنَّ دِمَاءَكُمْ وَأَمْوَالَكُمْ حَرَامٌ عَلَيْكُمْ كَحُرْمَةِ يَوْمِكُمْ هَذَا فِي شَهْرِكُمْ هَذَا فِي بَلَدِكُمْ هَذَا',
-          'urdu_translation': 'بے شک تمہارے خون اور تمہارے مال ایک دوسرے پر اسی طرح حرام ہیں جس طرح تمہارا یہ دن، یہ مہینہ اور یہ شہر حرمت والا ہے۔',
-        },
-        {
-          'stable_id': 'ref_quran_maidah_ikmal',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ المائدۃ (5: 3)',
-          'original_arabic_excerpt': 'الْيَوْمَ أَكْمَلْتُ لَكُمْ دِينَكُمْ وَأَتْمَمْتُ عَلَيْكُمْ نِعْمَتِي وَرَضِيتُ لَكُمُ الْإِسْلَامَ دِينًا',
-          'urdu_translation': 'آج میں نے تمہارے لیے تمہارا دین مکمل کر دیا اور تم پر اپنی نعمت تمام کر دی اور تمہارے لیے اسلام کو بطورِ دین پسند فرمایا۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_wafat',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب مرض النبي ﷺ ووفاته',
-          'urdu_translation': 'ربیع الاول 11 ہجری میں مرضِ وفات، حضرت ابوبکر صدیق کی امامت، وصالِ نبوی ﷺ اور مسجدِ نبوی میں تدفین کی صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_quran_nur_ifk',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ النور (24: 11–20)',
-          'urdu_translation': 'واقعۂ افک میں ام المؤمنین سیدہ عائشہ صدیقہ رضی اللہ عنہا کی پاکدامنی و براءت اور افترا پردازی کی مذمت کا قرآنی فیصلہ۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_ifk_mustaliq',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب حديث الإفك وغزوة بني المصطلق',
-          'urdu_translation': 'غزوۂ بنو المصطلق (المریسیع) کے موقع پر منافقین کی سازشوں اور ام المؤمنین سیدہ عائشہ رضی اللہ عنہا کی مفصل صحیح حدیث۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_mutah',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب غزوة مؤتة',
-          'urdu_translation': 'جمادی الاولیٰ 8 ہجری میں رومی سرحد پر معرکۂ موتہ، تین امراء کی شہادت اور حضرت خالد بن ولید کی سیف اللہ کے لقب کے ساتھ واپسی۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_wufood',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب وفود العرب إلى النبي ﷺ',
-          'urdu_translation': 'فتحِ مکہ کے بعد جزیرۂ عرب کے مختلف قبائل (بنو تمیم، بنو ثقیف، عبد القیس اور نجران وغیرہ) کے وفود کی مدینہ آمد۔',
-        },
-        {
-          'stable_id': 'ref_quran_baqarah_riba_khamr',
-          'source_stable_id': 'src_quran',
-          'section_or_hadith_number': 'سورۃ البقرۃ (2: 275–279) و سورۃ المائدۃ (5: 90)',
-          'urdu_translation': 'مدنی معاشرے میں شراب و جوئے کی مکمل حرمت اور سودی نظام کے قطعی خاتمے کے قرآنی احکام۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_azwaj_ahlbayt',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب فضائل أصحاب النبي ﷺ — مناقبِ اہلِ بیت و ازواج',
-          'urdu_translation': 'ازواجِ مطہرات، سیدہ فاطمہ الزہراء، حضرت حسن و حسین اور صحابۂ کرام کے فضائل و مناقب کی صحیح احادیث۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_shamail',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المناقب وكتاب الأدب — باب صفة النبي ﷺ',
-          'urdu_translation': 'رسول اللہ ﷺ کے حلیۂ مبارک، تبسم، سادگی، عبادت، امانت داری اور حسنِ اخلاق سے متعلق صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_muslim_rahmat_akhlaq',
-          'source_stable_id': 'src_muslim',
-          'section_or_hadith_number': 'كتاب الفضائل — باب في رحمته ﷺ وخلقه العظيم',
-          'urdu_translation': 'قرآن کو آپ ﷺ کا خلق قرار دیے جانے، بچوں اور کمزوروں پر شفقت اور عفو و درگزر کی صحیح احادیث۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_zamzam',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المناقب — باب قصة زمزم',
-          'urdu_translation': 'عبدالمطلب بن ہاشم کی طرف سے چاہِ زمزم کی بازیافت، دو سونے کے ہرن اور تلواروں کے برآمد ہونے کا تذکرہ۔',
-        },
-        {
-          'stable_id': 'ref_muslim_shaqq_sadr',
-          'source_stable_id': 'src_muslim',
-          'section_or_hadith_number': 'كتاب الإيمان — باب الإسراء برسول الله ﷺ (حديث أنس)',
-          'urdu_translation': 'بنی سعد میں بچپن کے دوران حضرت جبریل علیہ السلام کی آمد اور معجزۂ شقِ صدر کی صحیح مسلم کی روایت۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_umar_islam',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب فضائل أصحاب النبي ﷺ — مناقب عمر بن الخطاب',
-          'urdu_translation': 'حضرت عمر بن خطاب رضی اللہ عنہ کے قبولِ اسلام کے بعد مکہ میں اہلِ ایمان کو حاصل ہونے والی عزت و علانیہ عبادت۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_qaynuqa_nadir',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — حديث إجلاء بني النضير وبني قينقاع',
-          'urdu_translation': 'میثاقِ مدینہ کی عہد شکنی پر بنو قینقاع و بنو نضیر کی جلاوطنی اور سورۃ الحشر کے نزول کی صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_bukhari_bir_maunah_rajee',
-          'source_stable_id': 'src_bukhari',
-          'section_or_hadith_number': 'كتاب المغازي — باب غزوة الرجيع وبئر معونة',
-          'urdu_translation': '4 ہجری میں واقعۂ رجیع (خبیب بن عدی) اور سانحۂ بئرِ معونہ (ستر قراء کی شہادت و قنوتِ نازلہ) کی صحیح روایات۔',
-        },
-        {
-          'stable_id': 'ref_tirmidhi_shamail',
-          'source_stable_id': 'src_tirmidhi',
-          'section_or_hadith_number': 'الشمائل المحمدية — باب ما جاء في خلق رسول الله ﷺ',
-          'urdu_translation': 'رسول اللہ ﷺ کے حلیۂ مبارک، مہرِ نبوت، اندازِ کلام، تبسم اور روزمرہ شمائل کی جامع روایات۔',
-        },
-      ]) {
-      batch.insert('source_references', row, conflictAlgorithm: ConflictAlgorithm.ignore);
+        where: 'stable_id = ?',
+        whereArgs: [row['stable_id']],
+      );
     }
-  
+
     await batch.commit(noResult: true);
   }
 
@@ -571,6 +196,22 @@ final class SeerahDatabaseSeeder {
       await txn.insert('research_versions', {
               'version_tag': 'v1.4.1-search-and-chronology',
               'change_summary_urdu': 'تمام ۱۶ ابواب کے لیے مکمل آف لائن تلاش، تاریخی نقشہ جات، اور زمانی خطِ سیر کی جامع توثیق و ہم آہنگی۔',
+              'revised_by': 'Seerah Research Editorial Board',
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    if (!existingTags.contains('v2.0.0-encyclopedic-seerah')) {
+      await txn.insert('research_versions', {
+              'version_tag': 'v2.0.0-encyclopedic-seerah',
+              'chapter_stable_id': 'chapter_001',
+              'change_summary_urdu': 'تمام ۱۶ ابواب کی مکمل، تفصیلی اور مرحلہ وار توسیع: غزوات کی ابتدا تا انجام مکمل جنگی و تاریخی جزئیات، کبار صحابہ کے قبولِ اسلام و اولین ملاقات کے واقعات، اور شمائل، اخلاق، رضا، ناراضی، منہیات و اقوالِ نبوی ﷺ کا جامع بیان۔',
+              'revised_by': 'Seerah Research Editorial Board',
+            }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    if (!existingTags.contains(kCurrentContentVersion)) {
+      await txn.insert('research_versions', {
+              'version_tag': kCurrentContentVersion,
+              'chapter_stable_id': 'chapter_001',
+              'change_summary_urdu': 'تمام ۱۶ ابواب کی مکمل کتابی سطح پر از سرِ نو تدوین: کوئی واقعہ مختصر نہیں، ہر غزوے و سریے کی مکمل ابتدا تا انجام تفصیل، کبار صحابہ کے قبولِ اسلام، سنی و شیعہ اور محدثانہ اسنادی تجزیہ، اور شمائل و اخلاق و رضا و غضب و منہیات کی جامع دستاویز۔',
               'revised_by': 'Seerah Research Editorial Board',
             }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
@@ -825,7 +466,7 @@ final class SeerahDatabaseSeeder {
     );
     await _linkClaimEvidenceToNarration(
       txn: txn,
-      claimId: 'ch12_c_01',
+      claimId: 'ch14_c_01',
       sourceRefId: 'ref_muslim_hajj_wida',
       narrationId: 'narr_muslim_hajj_wida',
     );
@@ -1247,8 +888,8 @@ final class SeerahDatabaseSeeder {
         },
         {
           'stable_id': 'tl_023_khaybar',
-          'chapter_stable_id': 'chapter_010',
-          'claim_stable_id': 'ch10_c_04',
+          'chapter_stable_id': 'chapter_011',
+          'claim_stable_id': 'ch11_c_01',
           'hijri_year': 7,
           'gregorian_year': 628,
           'era_code': 'madinan_era',
@@ -1259,8 +900,8 @@ final class SeerahDatabaseSeeder {
         },
         {
           'stable_id': 'tl_024_fath_makkah',
-          'chapter_stable_id': 'chapter_011',
-          'claim_stable_id': 'ch11_c_01',
+          'chapter_stable_id': 'chapter_012',
+          'claim_stable_id': 'ch12_c_04',
           'hijri_year': 8,
           'gregorian_year': 630,
           'era_code': 'madinan_era',
@@ -1271,8 +912,8 @@ final class SeerahDatabaseSeeder {
         },
         {
           'stable_id': 'tl_025_hunayn_tabuk',
-          'chapter_stable_id': 'chapter_011',
-          'claim_stable_id': 'ch11_c_02',
+          'chapter_stable_id': 'chapter_012',
+          'claim_stable_id': 'ch12_c_07',
           'hijri_year': 9,
           'gregorian_year': 630,
           'era_code': 'madinan_era',
@@ -1283,8 +924,8 @@ final class SeerahDatabaseSeeder {
         },
         {
           'stable_id': 'tl_026_hijjatul_wida',
-          'chapter_stable_id': 'chapter_012',
-          'claim_stable_id': 'ch12_c_01',
+          'chapter_stable_id': 'chapter_014',
+          'claim_stable_id': 'ch14_c_01',
           'hijri_year': 10,
           'gregorian_year': 632,
           'era_code': 'madinan_era',
@@ -1295,8 +936,8 @@ final class SeerahDatabaseSeeder {
         },
         {
           'stable_id': 'tl_027_wafat',
-          'chapter_stable_id': 'chapter_012',
-          'claim_stable_id': 'ch12_c_03',
+          'chapter_stable_id': 'chapter_014',
+          'claim_stable_id': 'ch14_c_11',
           'hijri_year': 11,
           'gregorian_year': 632,
           'era_code': 'madinan_era',
@@ -1307,8 +948,8 @@ final class SeerahDatabaseSeeder {
         },
         {
           'stable_id': 'tl_028_banu_mustaliq_ifk',
-          'chapter_stable_id': 'chapter_013',
-          'claim_stable_id': 'ch13_c_03',
+          'chapter_stable_id': 'chapter_010',
+          'claim_stable_id': 'ch10_c_16',
           'hijri_year': 6,
           'gregorian_year': 627,
           'era_code': 'madinan_era',
@@ -1319,8 +960,8 @@ final class SeerahDatabaseSeeder {
         },
         {
           'stable_id': 'tl_029_mutah',
-          'chapter_stable_id': 'chapter_013',
-          'claim_stable_id': 'ch13_c_04',
+          'chapter_stable_id': 'chapter_011',
+          'claim_stable_id': 'ch11_c_12',
           'hijri_year': 8,
           'gregorian_year': 629,
           'era_code': 'madinan_era',
@@ -1331,8 +972,8 @@ final class SeerahDatabaseSeeder {
         },
         {
           'stable_id': 'tl_030_wufood',
-          'chapter_stable_id': 'chapter_014',
-          'claim_stable_id': 'ch14_c_01',
+          'chapter_stable_id': 'chapter_013',
+          'claim_stable_id': 'ch13_c_01',
           'hijri_year': 9,
           'gregorian_year': 630,
           'era_code': 'madinan_era',
@@ -1343,6 +984,22 @@ final class SeerahDatabaseSeeder {
         },
       ]) {
       batch.insert('timeline_events', row, conflictAlgorithm: ConflictAlgorithm.ignore);
+      batch.update(
+        'timeline_events',
+        {
+          'chapter_stable_id': row['chapter_stable_id'],
+          'claim_stable_id': row['claim_stable_id'],
+          'hijri_year': row['hijri_year'],
+          'gregorian_year': row['gregorian_year'],
+          'era_code': row['era_code'],
+          'order_index': row['order_index'],
+          'title_urdu': row['title_urdu'],
+          'summary_urdu': row['summary_urdu'],
+          'reliability_status': row['reliability_status'],
+        },
+        where: 'stable_id = ?',
+        whereArgs: [row['stable_id']],
+      );
     }
   
     await batch.commit(noResult: true);

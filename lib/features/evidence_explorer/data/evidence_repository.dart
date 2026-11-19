@@ -68,27 +68,32 @@ final class SqliteEvidenceRepository implements EvidenceRepository {
     final claimIds = rows
         .map((r) => AppDatabase.readString(r['stable_id']))
         .toList(growable: false);
-    final ph = AppDatabase.placeholders(claimIds.length);
-    final translations = await db.query(
-      'historical_claim_translations',
-      where: 'claim_stable_id IN ($ph) AND language_code = ?',
-      whereArgs: [...claimIds, languageCode],
-    );
-    final fallbackTranslations =
-        languageCode == AppConstants.defaultLanguageCode
-            ? translations
-            : await db.query(
-                'historical_claim_translations',
-                where: 'claim_stable_id IN ($ph) AND language_code = ?',
-                whereArgs: [...claimIds, AppConstants.defaultLanguageCode],
-              );
-
-    final trMap = <String, Map<String, Object?>>{
-      for (final tr in fallbackTranslations)
-        AppDatabase.readString(tr['claim_stable_id']): tr,
-      for (final tr in translations)
-        AppDatabase.readString(tr['claim_stable_id']): tr,
-    };
+    final trMap = <String, Map<String, Object?>>{};
+    const chunkSize = 400;
+    for (var i = 0; i < claimIds.length; i += chunkSize) {
+      final end = (i + chunkSize < claimIds.length) ? i + chunkSize : claimIds.length;
+      final chunk = claimIds.sublist(i, end);
+      final ph = AppDatabase.placeholders(chunk.length);
+      final translations = await db.query(
+        'historical_claim_translations',
+        where: 'claim_stable_id IN ($ph) AND language_code = ?',
+        whereArgs: [...chunk, languageCode],
+      );
+      final fallbackTranslations =
+          languageCode == AppConstants.defaultLanguageCode
+              ? translations
+              : await db.query(
+                  'historical_claim_translations',
+                  where: 'claim_stable_id IN ($ph) AND language_code = ?',
+                  whereArgs: [...chunk, AppConstants.defaultLanguageCode],
+                );
+      for (final tr in fallbackTranslations) {
+        trMap[AppDatabase.readString(tr['claim_stable_id'])] = tr;
+      }
+      for (final tr in translations) {
+        trMap[AppDatabase.readString(tr['claim_stable_id'])] = tr;
+      }
+    }
 
     return rows.map((c) {
       final stableId = AppDatabase.readString(c['stable_id']);

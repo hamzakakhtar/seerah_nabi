@@ -26,16 +26,20 @@ class ChapterReaderScreen extends ConsumerWidget {
       loading: () => false,
       error: (_, __) => false,
     );
+
     final shortTitle = ChapterReaderController.shortTitleFor(chapterStableId);
-    final appBarTitle = shortTitle ??
+
+    // Fallback add kiya hai taake appBarTitle hamesha non-nullable String rahay
+    final String appBarTitle = shortTitle ??
         chapterAsync.when(
           data: (ChapterReaderState state) => state.chapter.title,
           loading: () => 'مطالعۂ سیرت',
           error: (_, __) => 'مطالعۂ سیرت',
-        );
+        ) ??
+        'مطالعۂ سیرت';
 
     final previous =
-        ChapterReaderController.previousChapterFor(chapterStableId);
+    ChapterReaderController.previousChapterFor(chapterStableId);
     final next = ChapterReaderController.nextChapterFor(chapterStableId);
 
     return Scaffold(
@@ -75,9 +79,9 @@ class ChapterReaderScreen extends ConsumerWidget {
               ? 'پچھلا باب: ${previous.shortTitleUrdu}'
               : null,
           onPreviousChapter:
-              previous != null ? () => context.go(previous.routePath) : null,
+          previous != null ? () => context.go(previous.routePath) : null,
           nextChapterLabel:
-              next != null ? 'اگلا باب: ${next.shortTitleUrdu}' : null,
+          next != null ? 'اگلا باب: ${next.shortTitleUrdu}' : null,
           onNextChapter: next != null ? () => context.go(next.routePath) : null,
         ),
       ),

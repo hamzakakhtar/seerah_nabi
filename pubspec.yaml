@@ -40,3 +40,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+
+  fonts:
+    - family: JameelNoori
+      fonts:
+        - asset: assets/Jameel Noori Nastaleeq Kasheeda.ttf

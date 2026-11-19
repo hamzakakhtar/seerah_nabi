@@ -4,17 +4,20 @@ import 'package:seerat_un_nabi/core/constants/app_constants.dart';
 
 /// Urdu & Arabic literary typography configuration.
 ///
-/// Uses **Noto Nastaliq Urdu** for Urdu headings and long-form editorial prose
+/// Uses **JameelNoori** for Urdu headings and long-form editorial prose
 /// with generous line height (`2.15`) so Nastaliq ligatures and diacritics never
 /// clip or collide, and **Amiri** for classical Arabic primary source quotes.
 abstract final class AppTypography {
+  static const String urduFontFamily = 'JameelNoori';
+
   static TextStyle urduBody({
     required Color color,
     double fontSize = AppConstants.defaultReadingFontSize,
     FontWeight fontWeight = FontWeight.w400,
     double height = AppConstants.urduNastaliqLineHeight,
   }) {
-    return GoogleFonts.notoNastaliqUrdu(
+    return TextStyle(
+      fontFamily: urduFontFamily,
       color: color,
       fontSize: fontSize,
       fontWeight: fontWeight,
@@ -28,7 +31,8 @@ abstract final class AppTypography {
     FontWeight fontWeight = FontWeight.w700,
     double height = 1.9,
   }) {
-    return GoogleFonts.notoNastaliqUrdu(
+    return TextStyle(
+      fontFamily: urduFontFamily,
       color: color,
       fontSize: fontSize,
       fontWeight: fontWeight,
@@ -55,7 +59,11 @@ abstract final class AppTypography {
     required Color secondaryTextColor,
     double readingFontSize = AppConstants.defaultReadingFontSize,
   }) {
-    final base = GoogleFonts.notoNastaliqUrduTextTheme();
+    final base = Typography.material2021().black.apply(
+      fontFamily: urduFontFamily,
+      bodyColor: primaryTextColor,
+      displayColor: primaryTextColor,
+    );
     return base.copyWith(
       headlineLarge: urduHeading(color: primaryTextColor, fontSize: 28),
       headlineMedium: urduHeading(color: primaryTextColor, fontSize: 24),

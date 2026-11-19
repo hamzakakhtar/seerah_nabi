@@ -21,6 +21,7 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: AppTypography.urduFontFamily,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.lightBackground,
       textTheme: AppTypography.buildTextTheme(
@@ -70,6 +71,7 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: AppTypography.urduFontFamily,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.darkBackground,
       textTheme: AppTypography.buildTextTheme(
